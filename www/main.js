@@ -92,9 +92,9 @@ let imports = {
             };
 
             if (element.clicked) {
+                element.clicked = false;
                 return true;
             } else {
-                element.clicked = false;
                 return false;
             }
         },
