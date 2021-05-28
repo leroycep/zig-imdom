@@ -9,6 +9,35 @@ let imdom_elements = {};
 let imdom_elementIdToIdx = {};
 let imdom_next_element_idx = 1;
 
+function getOrCreateElement(parentIdx, id_ptr, id_len, tagType) {
+    const buffer = globalInstance.exports.memory.buffer;
+
+    const parent = imdom_elements[parentIdx];
+
+    const child_id_bytes = new Uint8Array(buffer, id_ptr, id_len);
+    const child_id = utf8decoder.decode(child_id_bytes);
+    const id = parent.id + child_id;
+
+    let elem_idx = imdom_elementIdToIdx[id];
+    if (!elem_idx) {
+        elem_idx = imdom_next_element_idx;
+        imdom_next_element_idx += 1;
+
+        imdom_elements[elem_idx] = {
+            id: id,
+            idx: elem_idx,
+            elem: document.createElement(tagType),
+        };
+        parent.elem.appendChild(imdom_elements[elem_idx].elem);
+        imdom_elementIdToIdx[id] = elem_idx;
+    }
+    return imdom_elements[elem_idx];
+}
+
+function triggerRender() {
+    globalInstance.exports.zig_callRender(imdom_userdata, imdom_rootIdx);
+}
+
 let imports = {
     env: {
         log_write(str_ptr, str_len) {
@@ -41,30 +70,36 @@ let imports = {
         },
 
         element_text(parentIdx, id_ptr, id_len, str_ptr, str_len) {
+            const element = getOrCreateElement(parentIdx, id_ptr, id_len, "p");
+
             const buffer = globalInstance.exports.memory.buffer;
-
-            const parent = imdom_elements[parentIdx];
-
-            const child_id_bytes = new Uint8Array(buffer, id_ptr, id_len);
-            const child_id = utf8decoder.decode(child_id_bytes);
-            const id = parent.id + child_id;
 
             const str_bytes = new Uint8Array(buffer, str_ptr, str_len);
             const str = utf8decoder.decode(str_bytes);
 
-            let elem_idx = imdom_elementIdToIdx[id];
-            if (!elem_idx) {
-                elem_idx = imdom_next_element_idx;
-                imdom_next_element_idx += 1;
+            element.elem.textContent = str;
+        },
 
-                imdom_elements[elem_idx] = {
-                    id: id,
-                    elem: document.createElement("p"),
-                };
-                parent.elem.appendChild(imdom_elements[elem_idx].elem);
-                imdom_elementIdToIdx[id] = elem_idx;
+        element_button(parentIdx, id_ptr, id_len, str_ptr, str_len) {
+            const element = getOrCreateElement(parentIdx, id_ptr, id_len, "button");
+
+            const buffer = globalInstance.exports.memory.buffer;
+
+            const str_bytes = new Uint8Array(buffer, str_ptr, str_len);
+            const str = utf8decoder.decode(str_bytes);
+
+            element.elem.textContent = str;
+            element.elem.onclick = () => {
+                element.clicked = true;
+                triggerRender();
+            };
+
+            if (element.clicked) {
+                return true;
+            } else {
+                element.clicked = false;
+                return false;
             }
-            imdom_elements[elem_idx].elem.textContent = str;
         },
     },
 };

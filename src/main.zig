@@ -23,4 +23,7 @@ pub export fn _start() void {
 pub fn render(data: *Data, root: *imdom.Element) void {
     root.text(.{}, "Hello, world");
     root.text(.{}, "This is an important message");
+    if (root.button(.{}, "Click Me!")) {
+        std.log.info("Button clicked!", .{});
+    }
 }
