@@ -14,7 +14,7 @@ function triggerRender() {
     do {
         imdom_shouldRerender = false;
         globalInstance.exports.zig_callRender(imdom_userdata, imdom_rootIdx);
-    } while(imdom_shouldRerender);
+    } while (imdom_shouldRerender);
 }
 
 let imports = {
@@ -119,6 +119,8 @@ let imports = {
 
             if (element.clicked) {
                 element.clicked = false;
+                // Previous render might be stale at this point
+                imdom_shouldRerender = true;
                 return true;
             } else {
                 return false;

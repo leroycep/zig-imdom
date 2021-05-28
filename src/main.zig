@@ -11,7 +11,7 @@ const Data = struct {
     str: std.ArrayList(u8),
 };
 
-var gpa = std.heap.GeneralPurposeAllocator(.{.safety = false}){};
+var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = false }){};
 var data_static: Data = undefined;
 
 pub export fn _start() void {
@@ -27,9 +27,6 @@ pub fn render(data: *Data, root: *imdom.Element) void {
     root.text(.{}, "This is an important message");
     if (root.buttonFmt(.{}, "Count: {}", .{data.count})) {
         data.count += 1;
-
-        // Let the the GUI know that it needs to be rerendered
-        root.invalidate();
         std.log.info("Button clicked! {}", .{data.count});
     }
 }
