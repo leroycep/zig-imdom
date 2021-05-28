@@ -15,7 +15,6 @@ const Data = struct {
 const Todo = struct {
     id: u64,
     description: std.ArrayList(u8),
-    deleted: bool = false,
 };
 
 var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = false }){};
@@ -39,13 +38,13 @@ pub fn render(data: *Data, root: *imdom.Element) void {
     }
     //root.textFmt(.{}, "Name: {s}", .{data.str.items});
     //root.inputText(.{}, "Name", &data.str);
-    for (data.todos.items) |*todo| {
-        if (todo.deleted) continue;
-
+    for (data.todos.items) |*todo, idx| {
         const div = root.divFmt("{}", .{todo.id});
         div.inputText(.{}, "description", &todo.description);
         if (div.button(.{}, "del")) {
-            todo.deleted = true;
+            // It's safe to do a swapRemove here because the clicked button means that the
+            // everything will need to be rerendered anyway. Not ideal, but eh. I'm lazy.
+            _ = data.todos.swapRemove(idx);
         }
     }
 
