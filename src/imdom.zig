@@ -58,6 +58,12 @@ pub const Element = opaque {
         const element = js.element_getOrCreate(this, label.ptr, label.len, .input);
         js.element_inputText(element, string);
     }
+
+    pub fn divFmt(this: *@This(), comptime fmt: []const u8, args: anytype) *Element {
+        var id_buffer: [1000]u8 = undefined;
+        const id = std.fmt.bufPrint(&id_buffer, fmt, args) catch unreachable;
+        return js.element_getOrCreate(this, id.ptr, id.len, .div);
+    }
 };
 
 fn textContentWrite(element: *Element, bytes: []const u8) error{}!usize {
@@ -95,5 +101,6 @@ const js = struct {
         p,
         button,
         input,
+        div,
     };
 };

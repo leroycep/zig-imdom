@@ -5,16 +5,32 @@ const utf8decoder = new TextDecoder();
 let logString = "";
 let imdom_userdata = null;
 let imdom_rootIdx = null;
-let imdom_elements = {};
+let imdom_elements = new Map();
 let imdom_elementIdToIdx = {};
 let imdom_next_element_idx = 1;
 let imdom_shouldRerender = false;
 
+// Used to keep track of which elements are still supposed to exist
+let imdom_generation = 0;
+
 function triggerRender() {
     do {
+        imdom_generation += 1;
+
         imdom_shouldRerender = false;
         globalInstance.exports.zig_callRender(imdom_userdata, imdom_rootIdx);
     } while (imdom_shouldRerender);
+
+    // Clean up elements that were not created or updated
+    for (const [key, element] of imdom_elements.entries()) {
+        // Don't remove the root element!
+        if (element.id === "root") continue;
+
+        if (element.generation !== imdom_generation) {
+            element.elem.remove();
+            imdom_elements.delete(key);
+        }
+    }
 }
 
 let imports = {
@@ -39,11 +55,12 @@ let imports = {
             imdom_rootIdx = imdom_next_element_idx;
             imdom_next_element_idx += 1;
 
-            imdom_elements[imdom_rootIdx] = {
+            imdom_elements.set(imdom_rootIdx, {
                 id: "root",
                 elem: document.createElement("div"),
-            };
-            document.body.appendChild(imdom_elements[imdom_rootIdx].elem);
+                generation: imdom_generation,
+            });
+            document.body.appendChild(imdom_elements.get(imdom_rootIdx).elem);
 
             triggerRender();
         },
@@ -57,36 +74,40 @@ let imports = {
         element_getOrCreate(parentIdx, id_ptr, id_len, tagTypeId) {
             const buffer = globalInstance.exports.memory.buffer;
 
-            const parent = imdom_elements[parentIdx];
+            const parent = imdom_elements.get(parentIdx);
 
             const child_id_bytes = new Uint8Array(buffer, id_ptr, id_len);
             const child_id = utf8decoder.decode(child_id_bytes);
             const id = parent.id + child_id;
 
-            const TAG_TYPES = ["p", "button", "input"];
+            const TAG_TYPES = ["p", "button", "input", "div"];
             const tag_type = TAG_TYPES[tagTypeId];
 
             let elem_idx = imdom_elementIdToIdx[id];
-            if (!elem_idx) {
+            let element = null;
+            if (!elem_idx || !imdom_elements.has(elem_idx)) {
                 elem_idx = imdom_next_element_idx;
                 imdom_next_element_idx += 1;
 
-                imdom_elements[elem_idx] = {
+                element = {
                     id: id,
                     idx: elem_idx,
                     elem: document.createElement(tag_type),
                     justConstructed: true,
                 };
-                parent.elem.appendChild(imdom_elements[elem_idx].elem);
+                parent.elem.appendChild(element.elem);
+                imdom_elements.set(elem_idx, element);
                 imdom_elementIdToIdx[id] = elem_idx;
             } else {
-                imdom_elements[elem_idx].justConstructed = false;
+                element = imdom_elements.get(elem_idx);
+                element.justConstructed = false;
             }
+            element.generation = imdom_generation;
             return elem_idx;
         },
 
         element_setTextContent(elementIdx, str_ptr, str_len) {
-            const element = imdom_elements[elementIdx];
+            const element = imdom_elements.get(elementIdx);
 
             if (str_ptr === 0) {
                 element.elem.textContent = "";
@@ -102,7 +123,7 @@ let imports = {
         },
 
         element_appendTextContent(elementIdx, str_ptr, str_len) {
-            const element = imdom_elements[elementIdx];
+            const element = imdom_elements.get(elementIdx);
 
             const buffer = globalInstance.exports.memory.buffer;
 
@@ -113,7 +134,7 @@ let imports = {
         },
 
         element_wasClicked(elementIdx) {
-            const element = imdom_elements[elementIdx];
+            const element = imdom_elements.get(elementIdx);
 
             if (element.justConstructed) {
                 element.elem.addEventListener("click", () => {
@@ -133,7 +154,7 @@ let imports = {
         },
 
         element_inputText(elementIdx, buffer_ptr) {
-            const element = imdom_elements[elementIdx];
+            const element = imdom_elements.get(elementIdx);
 
             if (element.justConstructed) {
                 element.elem.type = "text";
