@@ -8,9 +8,13 @@ let imdom_rootIdx = null;
 let imdom_elements = {};
 let imdom_elementIdToIdx = {};
 let imdom_next_element_idx = 1;
+let imdom_shouldRerender = false;
 
 function triggerRender() {
-    globalInstance.exports.zig_callRender(imdom_userdata, imdom_rootIdx);
+    do {
+        imdom_shouldRerender = false;
+        globalInstance.exports.zig_callRender(imdom_userdata, imdom_rootIdx);
+    } while(imdom_shouldRerender);
 }
 
 let imports = {
@@ -44,6 +48,12 @@ let imports = {
             triggerRender();
         },
 
+        element_invalidate(elementIdx) {
+            // TODO: Allow user to create sub-elements and only update it when needed.
+            // For now, rerender everything
+            imdom_shouldRerender = true;
+        },
+
         element_getOrCreate(parentIdx, id_ptr, id_len, tagTypeId) {
             const buffer = globalInstance.exports.memory.buffer;
 
@@ -75,12 +85,28 @@ let imports = {
         element_setTextContent(elementIdx, str_ptr, str_len) {
             const element = imdom_elements[elementIdx];
 
+            if (str_ptr === 0) {
+                element.elem.textContent = "";
+                return;
+            }
+
             const buffer = globalInstance.exports.memory.buffer;
 
             const str_bytes = new Uint8Array(buffer, str_ptr, str_len);
             const str = utf8decoder.decode(str_bytes);
 
             element.elem.textContent = str;
+        },
+
+        element_appendTextContent(elementIdx, str_ptr, str_len) {
+            const element = imdom_elements[elementIdx];
+
+            const buffer = globalInstance.exports.memory.buffer;
+
+            const str_bytes = new Uint8Array(buffer, str_ptr, str_len);
+            const str = utf8decoder.decode(str_bytes);
+
+            element.elem.textContent += str;
         },
 
         element_wasClicked(elementIdx) {

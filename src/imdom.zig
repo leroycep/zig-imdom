@@ -6,6 +6,7 @@ pub fn Gui(comptime UserData: type, renderFn: fn (UserData, *Element) void) type
 
         pub fn init(allocator: *std.mem.Allocator, userdata: UserData) void {
             const this = allocator.create(@This()) catch unreachable;
+            this.data = userdata;
             js.setRenderUserData(@ptrToInt(this));
         }
 
@@ -16,6 +17,10 @@ pub fn Gui(comptime UserData: type, renderFn: fn (UserData, *Element) void) type
 }
 
 pub const Element = opaque {
+    pub fn invalidate(this: *@This()) void {
+        js.element_invalidate(this);
+    }
+
     pub const TextOptions = struct {};
 
     pub fn text(this: *@This(), options: TextOptions, str: []const u8) void {
@@ -31,12 +36,31 @@ pub const Element = opaque {
         js.element_setTextContent(element, str.ptr, str.len);
         return js.element_wasClicked(element);
     }
+
+    pub fn buttonFmt(this: *@This(), options: ButtonOptions, comptime fmt: []const u8, args: anytype) bool {
+        const element = js.element_getOrCreate(this, fmt.ptr, fmt.len, .button);
+        js.element_setTextContent(element, null, 0);
+        const writer = textContentWriter(element);
+        writer.print(fmt, args) catch unreachable;
+        return js.element_wasClicked(element);
+    }
 };
+
+fn textContentWrite(element: *Element, bytes: []const u8) error{}!usize {
+    js.element_appendTextContent(element, bytes.ptr, bytes.len);
+    return bytes.len;
+}
+
+fn textContentWriter(element: *Element) std.io.Writer(*Element, error{}, textContentWrite) {
+    return .{ .context = element };
+}
 
 const js = struct {
     pub extern "imdom" fn setRenderUserData(userdata: usize) void;
+    pub extern "imdom" fn element_invalidate(element: *Element) void;
     pub extern "imdom" fn element_getOrCreate(element: *Element, id_ptr: [*]const u8, id_len: usize, tt: TagType) *Element;
-    pub extern "imdom" fn element_setTextContent(element: *Element, str_ptr: [*]const u8, str_len: usize) void;
+    pub extern "imdom" fn element_setTextContent(element: *Element, str_ptr: ?[*]const u8, str_len: usize) void;
+    pub extern "imdom" fn element_appendTextContent(element: *Element, str_ptr: [*]const u8, str_len: usize) void;
     pub extern "imdom" fn element_wasClicked(element: *Element) bool;
 
     pub const TagType = enum(u32) {
