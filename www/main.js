@@ -63,7 +63,7 @@ let imports = {
             const child_id = utf8decoder.decode(child_id_bytes);
             const id = parent.id + child_id;
 
-            const TAG_TYPES = ["p", "button"];
+            const TAG_TYPES = ["p", "button", "input"];
             const tag_type = TAG_TYPES[tagTypeId];
 
             let elem_idx = imdom_elementIdToIdx[id];
@@ -75,9 +75,12 @@ let imports = {
                     id: id,
                     idx: elem_idx,
                     elem: document.createElement(tag_type),
+                    justConstructed: true,
                 };
                 parent.elem.appendChild(imdom_elements[elem_idx].elem);
                 imdom_elementIdToIdx[id] = elem_idx;
+            } else {
+                imdom_elements[elem_idx].justConstructed = false;
             }
             return elem_idx;
         },
@@ -112,10 +115,12 @@ let imports = {
         element_wasClicked(elementIdx) {
             const element = imdom_elements[elementIdx];
 
-            element.elem.onclick = () => {
-                element.clicked = true;
-                triggerRender();
-            };
+            if (element.justConstructed) {
+                element.elem.addEventListener("click", () => {
+                    element.clicked = true;
+                    triggerRender();
+                });
+            }
 
             if (element.clicked) {
                 element.clicked = false;
@@ -124,6 +129,52 @@ let imports = {
                 return true;
             } else {
                 return false;
+            }
+        },
+
+        element_inputText(elementIdx, buffer_ptr) {
+            const element = imdom_elements[elementIdx];
+
+            if (element.justConstructed) {
+                element.elem.type = "text";
+                element.elem.addEventListener("input", (e) => {
+                    element.haveNewValue = true;
+                    triggerRender();
+                });
+            }
+
+            if (element.haveNewValue) {
+                element.haveNewValue = false;
+                const value_bytes = new TextEncoder().encode(
+                    element.elem.value
+                );
+                const buffer_items_ptr = globalInstance.exports.imdom_zig_buffer_resize(
+                    buffer_ptr,
+                    value_bytes.byteLength
+                );
+                new Uint8Array(
+                    globalInstance.exports.memory.buffer,
+                    buffer_items_ptr,
+                    value_bytes.byteLength
+                ).set(value_bytes);
+
+                imdom_shouldRerender = true;
+            } else {
+                const string_ptr = globalInstance.exports.imdom_zig_buffer_ptr(
+                    buffer_ptr
+                );
+                const string_len = globalInstance.exports.imdom_zig_buffer_len(
+                    buffer_ptr
+                );
+                const string_bytes = new Uint8Array(
+                    globalInstance.exports.memory.buffer,
+                    string_ptr,
+                    string_len
+                );
+                const string = utf8decoder.decode(string_bytes);
+                if (string !== element.elem.value) {
+                    element.elem.value = string;
+                }
             }
         },
     },

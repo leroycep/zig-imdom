@@ -29,4 +29,6 @@ pub fn render(data: *Data, root: *imdom.Element) void {
         data.count += 1;
         std.log.info("Button clicked! {}", .{data.count});
     }
+    root.textFmt(.{}, "Name: {s}", .{data.str.items});
+    root.inputText(.{}, "Name", &data.str);
 }
