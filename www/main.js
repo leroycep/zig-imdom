@@ -66,7 +66,7 @@ let imports = {
             };
             document.body.appendChild(imdom_elements[imdom_rootIdx].elem);
 
-            globalInstance.exports.zig_callRender(userdata, imdom_rootIdx);
+            triggerRender();
         },
 
         element_text(parentIdx, id_ptr, id_len, str_ptr, str_len) {
