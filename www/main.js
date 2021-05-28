@@ -9,31 +9,6 @@ let imdom_elements = {};
 let imdom_elementIdToIdx = {};
 let imdom_next_element_idx = 1;
 
-function getOrCreateElement(parentIdx, id_ptr, id_len, tagType) {
-    const buffer = globalInstance.exports.memory.buffer;
-
-    const parent = imdom_elements[parentIdx];
-
-    const child_id_bytes = new Uint8Array(buffer, id_ptr, id_len);
-    const child_id = utf8decoder.decode(child_id_bytes);
-    const id = parent.id + child_id;
-
-    let elem_idx = imdom_elementIdToIdx[id];
-    if (!elem_idx) {
-        elem_idx = imdom_next_element_idx;
-        imdom_next_element_idx += 1;
-
-        imdom_elements[elem_idx] = {
-            id: id,
-            idx: elem_idx,
-            elem: document.createElement(tagType),
-        };
-        parent.elem.appendChild(imdom_elements[elem_idx].elem);
-        imdom_elementIdToIdx[id] = elem_idx;
-    }
-    return imdom_elements[elem_idx];
-}
-
 function triggerRender() {
     globalInstance.exports.zig_callRender(imdom_userdata, imdom_rootIdx);
 }
@@ -69,8 +44,36 @@ let imports = {
             triggerRender();
         },
 
-        element_text(parentIdx, id_ptr, id_len, str_ptr, str_len) {
-            const element = getOrCreateElement(parentIdx, id_ptr, id_len, "p");
+        element_getOrCreate(parentIdx, id_ptr, id_len, tagTypeId) {
+            const buffer = globalInstance.exports.memory.buffer;
+
+            const parent = imdom_elements[parentIdx];
+
+            const child_id_bytes = new Uint8Array(buffer, id_ptr, id_len);
+            const child_id = utf8decoder.decode(child_id_bytes);
+            const id = parent.id + child_id;
+
+            const TAG_TYPES = ["p", "button"];
+            const tag_type = TAG_TYPES[tagTypeId];
+
+            let elem_idx = imdom_elementIdToIdx[id];
+            if (!elem_idx) {
+                elem_idx = imdom_next_element_idx;
+                imdom_next_element_idx += 1;
+
+                imdom_elements[elem_idx] = {
+                    id: id,
+                    idx: elem_idx,
+                    elem: document.createElement(tag_type),
+                };
+                parent.elem.appendChild(imdom_elements[elem_idx].elem);
+                imdom_elementIdToIdx[id] = elem_idx;
+            }
+            return elem_idx;
+        },
+
+        element_setTextContent(elementIdx, str_ptr, str_len) {
+            const element = imdom_elements[elementIdx];
 
             const buffer = globalInstance.exports.memory.buffer;
 
@@ -80,15 +83,9 @@ let imports = {
             element.elem.textContent = str;
         },
 
-        element_button(parentIdx, id_ptr, id_len, str_ptr, str_len) {
-            const element = getOrCreateElement(parentIdx, id_ptr, id_len, "button");
+        element_wasClicked(elementIdx) {
+            const element = imdom_elements[elementIdx];
 
-            const buffer = globalInstance.exports.memory.buffer;
-
-            const str_bytes = new Uint8Array(buffer, str_ptr, str_len);
-            const str = utf8decoder.decode(str_bytes);
-
-            element.elem.textContent = str;
             element.elem.onclick = () => {
                 element.clicked = true;
                 triggerRender();

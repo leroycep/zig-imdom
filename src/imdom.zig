@@ -19,18 +19,28 @@ pub const Element = opaque {
     pub const TextOptions = struct {};
 
     pub fn text(this: *@This(), options: TextOptions, str: []const u8) void {
-        js.element_text(this, str.ptr, str.len, str.ptr, str.len);
+        // Use the string as the id
+        const element = js.element_getOrCreate(this, str.ptr, str.len, .p);
+        js.element_setTextContent(element, str.ptr, str.len);
     }
 
     pub const ButtonOptions = struct {};
 
     pub fn button(this: *@This(), options: ButtonOptions, str: []const u8) bool {
-        return js.element_button(this, str.ptr, str.len, str.ptr, str.len);
+        const element = js.element_getOrCreate(this, str.ptr, str.len, .button);
+        js.element_setTextContent(element, str.ptr, str.len);
+        return js.element_wasClicked(element);
     }
 };
 
 const js = struct {
     pub extern "imdom" fn setRenderUserData(userdata: usize) void;
-    pub extern "imdom" fn element_text(element: *Element, id_ptr: [*]const u8, id_len: usize, str_ptr: [*]const u8, str_len: usize) void;
-    pub extern "imdom" fn element_button(element: *Element, id_ptr: [*]const u8, id_len: usize, str_ptr: [*]const u8, str_len: usize) bool;
+    pub extern "imdom" fn element_getOrCreate(element: *Element, id_ptr: [*]const u8, id_len: usize, tt: TagType) *Element;
+    pub extern "imdom" fn element_setTextContent(element: *Element, str_ptr: [*]const u8, str_len: usize) void;
+    pub extern "imdom" fn element_wasClicked(element: *Element) bool;
+
+    pub const TagType = enum(u32) {
+        p,
+        button,
+    };
 };
