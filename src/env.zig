@@ -24,7 +24,10 @@ fn logWriter() std.io.Writer(void, error{}, logWrite) {
     return .{ .context = {} };
 }
 
-export fn _start() void {
-    @import("root").main();
+pub fn panic(msg: []const u8, stacktrace: ?*std.builtin.StackTrace) noreturn {
+    log_write(msg.ptr, msg.len);
+    log_flush();
+    while (true) {
+        @breakpoint();
+    }
 }
-

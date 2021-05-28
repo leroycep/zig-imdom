@@ -1,14 +1,26 @@
 const std = @import("std");
 const testing = std.testing;
 const env = @import("env.zig");
+const imdom = @import("imdom.zig");
 
 pub const log = env.log;
+pub const panic = env.panic;
 
-pub fn main() void {
-    std.log.info("Hello, world!", .{});
+const Data = struct {
+    str: std.ArrayList(u8),
+};
+
+var gpa = std.heap.GeneralPurposeAllocator(.{.safety = false}){};
+var data_static: Data = undefined;
+
+pub export fn _start() void {
+    data_static = .{
+        .str = std.ArrayList(u8).init(&gpa.allocator),
+    };
+    imdom.Gui(*Data, render).init(&gpa.allocator, &data_static);
 }
 
-test "basic add functionality" {
-    try testing.expect(add(3, 7) == 10);
+pub fn render(data: *Data, root: *imdom.Element) void {
+    root.text(.{}, "Hello, world");
+    root.text(.{}, "This is an important message");
 }
-
