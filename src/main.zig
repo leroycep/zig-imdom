@@ -42,6 +42,7 @@ pub fn render(data: *Data, root: *imdom.Element) void {
         const div = root.divFmt("{}", .{todo.id});
         div.inputText(.{}, "description", &todo.description);
         if (div.button(.{}, "del")) {
+            todo.description.deinit();
             // It's safe to do a swapRemove here because the clicked button means that the
             // everything will need to be rerendered anyway. Not ideal, but eh. I'm lazy.
             _ = data.todos.swapRemove(idx);
